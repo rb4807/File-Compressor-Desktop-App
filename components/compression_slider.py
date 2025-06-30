@@ -34,7 +34,7 @@ class CompressionSlider(QWidget):
         # Slider
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setRange(1, 100)
-        self.slider.setValue(70)
+        self.slider.setValue(90)
         self.slider.setStyleSheet("""
             QSlider {
                 height: 20px;

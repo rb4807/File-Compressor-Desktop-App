@@ -1,8 +1,45 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QFrame, QLabel, QSlider, 
-                              QPushButton, QHBoxLayout, QLineEdit, QButtonGroup)
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QPushButton, QHBoxLayout, QLineEdit, QButtonGroup
+from PySide6.QtCore import Qt, Signal, QThread, Signal
+
+import os
 from components.file_drop import FileDropArea
 from components.compression_slider import CompressionSlider
+from components.message import show_error_message, show_success_message
+from components.loader import trigger_loader
+from core.ImageCompressor.ImageCompressor import ImageCompressor
+
+class ImageCompressionWorker(QThread):
+    """Worker thread for image compression to prevent UI freezing"""
+    finished = Signal(str)  # Emits output path on success
+    error = Signal(str)     # Emits error message on failure
+    
+    def __init__(self, image_path, quality, resize, output_format, colors, output_path):
+        super().__init__()
+        self.image_path = image_path
+        self.quality = quality
+        self.resize = resize
+        self.output_format = output_format
+        self.colors = colors
+        self.output_path = output_path
+        
+    def run(self):
+        try:
+            # Call the backend processor
+            processor = ImageCompressor(image_path=self.image_path)
+            processed_data = processor.process_image(
+                output_format=self.output_format, 
+                quality=self.quality,
+                resize=self.resize,
+                colors=self.colors
+            )
+            
+            # Save the result
+            with open(self.output_path, 'wb') as f:
+                f.write(processed_data)
+                
+            self.finished.emit(self.output_path)
+        except Exception as e:
+            self.error.emit(str(e))
 
 class ImageView(QWidget):
     compression_complete = Signal(str)
@@ -10,7 +47,9 @@ class ImageView(QWidget):
     def __init__(self):
         super().__init__()
         self.image_path = None
+        self.compression_worker = None
         self.setup_ui()
+        self.setup_connections()
         
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -231,3 +270,111 @@ class ImageView(QWidget):
         btn_layout.addWidget(self.compress_btn)
         
         layout.addWidget(btn_frame)
+
+    def setup_connections(self):
+        """Set up signal connections"""
+        self.drop_area.files_dropped.connect(self.handle_file_dropped)
+        self.compress_btn.clicked.connect(self.process_image)
+        self.cancel_btn.clicked.connect(self.close)
+        
+    def handle_file_dropped(self, file_path):
+        """Handle when a file is dropped or selected"""
+        self.image_path = file_path
+        self.compress_btn.setEnabled(True)
+        
+    def process_image(self):
+        """Process the image with the selected settings"""
+        if not self.image_path:
+            return
+            
+        # Show loader
+        trigger_loader('show', self, "Compressing image...")
+        
+        # Disable UI controls during compression
+        self.compress_btn.setEnabled(False)
+        self.cancel_btn.setEnabled(False)
+        
+        try:
+            # Get all the parameters from the UI
+            quality = self.comp_slider.value()
+            
+            # Get resize dimensions
+            try:
+                width = int(self.width_input.text())
+                height = int(self.height_input.text())
+                resize = (width, height)
+            except ValueError:
+                resize = None  # Don't resize if invalid dimensions
+            
+            # Get output format
+            output_format = 'jpg' if self.jpg_btn.isChecked() else 'png'
+            
+            # Static color value as per requirements
+            colors = 128
+            
+            # Get output path
+            output_path = self.get_output_path()
+            
+            # Create and start worker thread
+            self.compression_worker = ImageCompressionWorker(
+                self.image_path, quality, resize, output_format, colors, output_path
+            )
+            self.compression_worker.finished.connect(self.on_compression_success)
+            self.compression_worker.error.connect(self.on_compression_error)
+            self.compression_worker.start()
+            
+        except Exception as e:
+            self.on_compression_error(str(e))
+    
+    def on_compression_success(self, output_path):
+        """Handle successful compression"""
+        # Hide loader
+        trigger_loader('hide')
+        
+        # Re-enable UI controls
+        self.compress_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(True)
+        
+        # Emit completion signal and show success message
+        self.compression_complete.emit(output_path)
+        show_success_message("Image compression successful!", f"Compressed image saved to:\n{output_path}")
+        
+        # Clean up worker
+        if self.compression_worker:
+            self.compression_worker.deleteLater()
+            self.compression_worker = None
+    
+    def on_compression_error(self, error_message):
+        """Handle compression error"""
+        # Hide loader
+        trigger_loader('hide')
+        
+        # Re-enable UI controls
+        self.compress_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(True)
+        
+        # Show error message
+        show_error_message(error_message, "Image compression failed")
+        
+        # Clean up worker
+        if self.compression_worker:
+            self.compression_worker.deleteLater()
+            self.compression_worker = None
+    
+    def get_output_path(self):
+        """Generate output path based on input path and selected format"""
+        base, _ = os.path.splitext(self.image_path)
+        ext = '.jpg' if self.jpg_btn.isChecked() else '.png'
+        return f"{base}_compressed{ext}"
+    
+    def closeEvent(self, event):
+        """Handle window close event"""
+        # Hide loader if visible
+        trigger_loader('hide')
+        
+        # Stop worker thread if running
+        if self.compression_worker and self.compression_worker.isRunning():
+            self.compression_worker.terminate()
+            self.compression_worker.wait()
+        
+        super().closeEvent(event)

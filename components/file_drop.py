@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QPushButton, QMessageBox, QFileDialog, QHBoxLayout
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QPushButton, QFileDialog, QHBoxLayout
 from PySide6.QtCore import Qt, Signal
+from components.message import show_error_message
 from icons.icons import IconLabel
 import os
 
@@ -256,10 +257,10 @@ class FileDropArea(QFrame):
         ext = os.path.splitext(file_path)[1].lower()
         
         if self.file_type == 'pdf' and ext != '.pdf':
-            self.show_error("Only PDF files are allowed.")
+            show_error_message("Only PDF files are allowed.", "Invalid File")
             return
         elif self.file_type == 'image' and ext not in ['.jpg', '.jpeg', '.png']:
-            self.show_error("Only JPG and PNG image files are allowed.")
+            show_error_message("Only JPG and PNG image files are allowed.", "Invalid File")
             return
         
         # Update state
@@ -275,9 +276,6 @@ class FileDropArea(QFrame):
         self.selected_file = None
         self.show_initial_state()
         self.setStyleSheet(self.default_style)
-
-    def show_error(self, message):
-        QMessageBox.warning(self, "Invalid File", message)
 
     def get_selected_file(self):
         return self.selected_file

@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QPushButton
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QRectF, Property
 from PySide6.QtGui import QColor, QPainter
 
-from theme.theme import get_app_base_color
+from theme.theme import get_app_primary_color
 
 class AnimatedToggle(QPushButton):
     def __init__(self, parent=None):
@@ -14,7 +14,7 @@ class AnimatedToggle(QPushButton):
         # Modern colors with better contrast
         self._bg_color = QColor("#e5e7eb")
         self._circle_color = QColor("#ffffff")
-        self._active_color = get_app_base_color()
+        self._active_color = get_app_primary_color()
         self._border_color = QColor("#d1d5db")
         
         # Animation
