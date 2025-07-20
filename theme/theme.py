@@ -1,11 +1,8 @@
 from PySide6.QtGui import QColor
+from PySide6.QtCore import QObject, Signal
 
 def get_app_secondary_color():
     return QColor("#6b7280")
-
-# theme.py
-from PySide6.QtGui import QColor
-from PySide6.QtCore import QObject, Signal
 
 class ThemeManager(QObject):
     theme_changed = Signal(bool)  # True for dark mode, False for light mode

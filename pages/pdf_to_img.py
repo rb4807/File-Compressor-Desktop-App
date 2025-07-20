@@ -7,6 +7,7 @@ from components.file_drop import FileDropArea
 from components.message import show_error_message, show_success_message
 from components.loader import trigger_loader
 from core.PdfCompressor.PdfCompressor import PdfCompressor
+from theme.theme import theme_manager, get_current_theme, get_app_primary_color, get_app_primary_hover_color
 
 class PDFToImgWorker(QThread):
     """Worker thread for PDF to image conversion to prevent UI freezing"""
@@ -48,8 +49,13 @@ class PDFToImgView(QWidget):
         super().__init__()
         self.pdf_path = None
         self.conversion_worker = None
+        
+        # Connect to theme manager
+        theme_manager.theme_changed.connect(self.on_theme_changed)
+        
         self.setup_ui()
         self.setup_connections()
+        self.apply_theme()
         
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -62,24 +68,11 @@ class PDFToImgView(QWidget):
         title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.setSpacing(5)
         
-        title = QLabel("PDF to Image Conversion")
-        title.setStyleSheet("""
-            QLabel {
-                font-size: 24px;
-                font-weight: bold;
-                color: #333333;
-            }
-        """)
-        title_layout.addWidget(title)
+        self.title = QLabel("PDF to Image Conversion")
+        title_layout.addWidget(self.title)
         
-        desc = QLabel("Extract images from PDF or convert pages to images")
-        desc.setStyleSheet("""
-            QLabel {
-                font-size: 16px;
-                color: #666666;
-            }
-        """)
-        title_layout.addWidget(desc)
+        self.desc = QLabel("Extract images from PDF or convert pages to images")
+        title_layout.addWidget(self.desc)
         
         layout.addWidget(title_frame)
         
@@ -99,9 +92,8 @@ class PDFToImgView(QWidget):
         format_layout.setContentsMargins(0, 0, 0, 0)
         format_layout.setSpacing(5)
         
-        format_label = QLabel("Output Image Format:")
-        format_label.setStyleSheet("font-size: 15px; color: #333333; font-weight: bold;")
-        format_layout.addWidget(format_label)
+        self.format_label = QLabel("Output Image Format:")
+        format_layout.addWidget(self.format_label)
         
         format_options = QFrame()
         format_options_layout = QHBoxLayout(format_options)
@@ -113,24 +105,9 @@ class PDFToImgView(QWidget):
         self.jpg_btn = QPushButton("JPG")
         self.jpg_btn.setCheckable(True)
         self.jpg_btn.setChecked(True)
-        self.jpg_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e0e0e0;
-                color: #333333;
-                border: none;
-                padding: 8px 15px;
-                border-radius: 5px;
-                font-size: 14px;
-            }
-            QPushButton:checked {
-                background-color: #009688;
-                color: white;
-            }
-        """)
         
         self.png_btn = QPushButton("PNG")
         self.png_btn.setCheckable(True)
-        self.png_btn.setStyleSheet(self.jpg_btn.styleSheet())
         
         self.format_group.addButton(self.jpg_btn, 0)
         self.format_group.addButton(self.png_btn, 1)
@@ -148,9 +125,8 @@ class PDFToImgView(QWidget):
         quality_layout.setContentsMargins(0, 0, 0, 0)
         quality_layout.setSpacing(5)
         
-        quality_label = QLabel("Image Quality:")
-        quality_label.setStyleSheet("font-size: 15px; color: #333333; font-weight: bold;")
-        quality_layout.addWidget(quality_label)
+        self.quality_label = QLabel("Image Quality:")
+        quality_layout.addWidget(self.quality_label)
         
         self.quality_slider = CompressionSlider()
         quality_layout.addWidget(self.quality_slider)
@@ -160,15 +136,13 @@ class PDFToImgView(QWidget):
         slider_labels_layout = QHBoxLayout(slider_labels)
         slider_labels_layout.setContentsMargins(0, 0, 0, 0)
         
-        min_label = QLabel("Lower Quality")
-        min_label.setStyleSheet("font-size: 13px; color: #666666;")
-        slider_labels_layout.addWidget(min_label)
+        self.min_label = QLabel("Lower Quality")
+        slider_labels_layout.addWidget(self.min_label)
         
         slider_labels_layout.addStretch()
         
-        max_label = QLabel("Higher Quality")
-        max_label.setStyleSheet("font-size: 13px; color: #666666;")
-        slider_labels_layout.addWidget(max_label)
+        self.max_label = QLabel("Higher Quality")
+        slider_labels_layout.addWidget(self.max_label)
         
         quality_layout.addWidget(slider_labels)
         options_layout.addWidget(quality_frame)
@@ -183,41 +157,10 @@ class PDFToImgView(QWidget):
         btn_layout.setSpacing(15)
         
         self.convert_btn = QPushButton("Convert to Images")
-        self.convert_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #009688;
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 5px;
-                font-size: 15px;
-                min-width: 180px;
-            }
-            QPushButton:hover {
-                background-color: #00796b;
-            }
-            QPushButton:disabled {
-                background-color: #b2dfdb;
-            }
-        """)
         self.convert_btn.setCursor(Qt.PointingHandCursor)
         self.convert_btn.setEnabled(False)
         
         self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f5f5f5;
-                color: #333333;
-                border: 1px solid #e0e0e0;
-                padding: 12px 24px;
-                border-radius: 5px;
-                font-size: 15px;
-                min-width: 180px;
-            }
-            QPushButton:hover {
-                background-color: #e0e0e0;
-            }
-        """)
         self.cancel_btn.setCursor(Qt.PointingHandCursor)
         
         btn_layout.addStretch()
@@ -231,6 +174,119 @@ class PDFToImgView(QWidget):
         self.drop_area.files_dropped.connect(self.handle_file_dropped)
         self.convert_btn.clicked.connect(self.process_pdf)
         self.cancel_btn.clicked.connect(self.close)
+        
+    def on_theme_changed(self, is_dark_mode):
+        """Handle theme changes from the theme manager"""
+        self.apply_theme()
+        
+    def apply_theme(self):
+        """Apply the current theme to all UI elements"""
+        theme = get_current_theme()
+        primary_color = get_app_primary_color()
+        primary_hover = get_app_primary_hover_color()
+        
+        # Title styling
+        self.title.setStyleSheet(f"""
+            QLabel {{
+                font-size: 24px;
+                font-weight: bold;
+                color: {theme.TEXT_PRIMARY};
+            }}
+        """)
+        
+        # Description styling
+        self.desc.setStyleSheet(f"""
+            QLabel {{
+                font-size: 16px;
+                color: {theme.TEXT_SECONDARY};
+            }}
+        """)
+        
+        # Format label styling
+        self.format_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 15px; 
+                color: {theme.TEXT_PRIMARY}; 
+                font-weight: bold;
+            }}
+        """)
+        
+        # Quality label styling
+        self.quality_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 15px; 
+                color: {theme.TEXT_PRIMARY}; 
+                font-weight: bold;
+            }}
+        """)
+        
+        # Slider labels styling
+        self.min_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 13px; 
+                color: {theme.TEXT_MUTED};
+            }}
+        """)
+        
+        self.max_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 13px; 
+                color: {theme.TEXT_MUTED};
+            }}
+        """)
+        
+        # Format button styling
+        format_button_style = f"""
+            QPushButton {{
+                background-color: {theme.SURFACE_BG};
+                color: {theme.TEXT_PRIMARY};
+                border: none;
+                padding: 8px 15px;
+                border-radius: 5px;
+                font-size: 14px;
+            }}
+            QPushButton:checked {{
+                background-color: {primary_color};
+                color: white;
+            }}
+        """
+        self.jpg_btn.setStyleSheet(format_button_style)
+        self.png_btn.setStyleSheet(format_button_style)
+        
+        # Convert button styling
+        self.convert_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {primary_color};
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 5px;
+                font-size: 15px;
+                min-width: 180px;
+            }}
+            QPushButton:hover {{
+                background-color: {primary_hover};
+            }}
+            QPushButton:disabled {{
+                background-color: #b2dfdb;
+            }}
+        """)
+        
+        # Cancel button styling
+        self.cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme.SURFACE_BG};
+                color: {theme.TEXT_PRIMARY};
+                border: 1px solid {theme.BORDER_PRIMARY};
+                padding: 12px 24px;
+                border-radius: 5px;
+                font-size: 15px;
+                min-width: 180px;
+            }}
+            QPushButton:hover {{
+                background-color: {theme.BORDER_PRIMARY};
+            }}
+        """)
         
     def handle_file_dropped(self, file_path):
         """Handle when a file is dropped or selected"""

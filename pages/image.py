@@ -7,6 +7,7 @@ from components.compression_slider import CompressionSlider
 from components.message import show_error_message, show_success_message
 from components.loader import trigger_loader
 from core.ImageCompressor.ImageCompressor import ImageCompressor
+from theme.theme import theme_manager, get_current_theme, get_app_primary_color, get_app_primary_hover_color
 
 class ImageCompressionWorker(QThread):
     """Worker thread for image compression to prevent UI freezing"""
@@ -48,8 +49,13 @@ class ImageView(QWidget):
         super().__init__()
         self.image_path = None
         self.compression_worker = None
+        
+        # Connect to theme manager
+        theme_manager.theme_changed.connect(self.on_theme_changed)
+        
         self.setup_ui()
         self.setup_connections()
+        self.apply_theme()
         
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -62,24 +68,11 @@ class ImageView(QWidget):
         title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.setSpacing(5)
         
-        title = QLabel("Image Compression")
-        title.setStyleSheet("""
-            QLabel {
-                font-size: 24px;
-                font-weight: bold;
-                color: #333333;
-            }
-        """)
-        title_layout.addWidget(title)
+        self.title = QLabel("Image Compression")
+        title_layout.addWidget(self.title)
         
-        desc = QLabel("Compress JPG or PNG images without losing quality")
-        desc.setStyleSheet("""
-            QLabel {
-                font-size: 16px;
-                color: #666666;
-            }
-        """)
-        title_layout.addWidget(desc)
+        self.desc = QLabel("Compress JPG or PNG images without losing quality")
+        title_layout.addWidget(self.desc)
         
         layout.addWidget(title_frame)
         
@@ -99,9 +92,8 @@ class ImageView(QWidget):
         comp_level_layout.setContentsMargins(0, 0, 0, 0)
         comp_level_layout.setSpacing(5)
         
-        comp_level_label = QLabel("Compression Level:")
-        comp_level_label.setStyleSheet("font-size: 15px; color: #333333; font-weight: bold;")
-        comp_level_layout.addWidget(comp_level_label)
+        self.comp_level_label = QLabel("Compression Level:")
+        comp_level_layout.addWidget(self.comp_level_label)
         
         self.comp_slider = CompressionSlider()
         comp_level_layout.addWidget(self.comp_slider)
@@ -111,15 +103,13 @@ class ImageView(QWidget):
         slider_labels_layout = QHBoxLayout(slider_labels)
         slider_labels_layout.setContentsMargins(0, 0, 0, 0)
         
-        min_label = QLabel("Smaller File")
-        min_label.setStyleSheet("font-size: 13px; color: #666666;")
-        slider_labels_layout.addWidget(min_label)
+        self.min_label = QLabel("Smaller File")
+        slider_labels_layout.addWidget(self.min_label)
         
         slider_labels_layout.addStretch()
         
-        max_label = QLabel("Better Quality")
-        max_label.setStyleSheet("font-size: 13px; color: #666666;")
-        slider_labels_layout.addWidget(max_label)
+        self.max_label = QLabel("Better Quality")
+        slider_labels_layout.addWidget(self.max_label)
         
         comp_level_layout.addWidget(slider_labels)
         options_layout.addWidget(comp_level_frame)
@@ -130,9 +120,8 @@ class ImageView(QWidget):
         resize_layout.setContentsMargins(0, 0, 0, 0)
         resize_layout.setSpacing(5)
         
-        resize_label = QLabel("Resize Image (width × height):")
-        resize_label.setStyleSheet("font-size: 15px; color: #333333; font-weight: bold;")
-        resize_layout.addWidget(resize_label)
+        self.resize_label = QLabel("Resize Image (width × height):")
+        resize_layout.addWidget(self.resize_label)
         
         resize_inputs = QFrame()
         resize_inputs_layout = QHBoxLayout(resize_inputs)
@@ -142,27 +131,16 @@ class ImageView(QWidget):
         self.width_input = QLineEdit("800")
         self.width_input.setPlaceholderText("Width")
         self.width_input.setFixedWidth(80)
-        self.width_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
-                font-size: 14px;
-                color: black;
-            }
-        """)
         
-        times_label = QLabel("×")
-        times_label.setStyleSheet("font-size: 14px; color: #333333;")
-        times_label.setAlignment(Qt.AlignCenter)
+        self.times_label = QLabel("×")
+        self.times_label.setAlignment(Qt.AlignCenter)
         
         self.height_input = QLineEdit("600")
         self.height_input.setPlaceholderText("Height")
         self.height_input.setFixedWidth(80)
-        self.height_input.setStyleSheet(self.width_input.styleSheet())
         
         resize_inputs_layout.addWidget(self.width_input)
-        resize_inputs_layout.addWidget(times_label)
+        resize_inputs_layout.addWidget(self.times_label)
         resize_inputs_layout.addWidget(self.height_input)
         resize_inputs_layout.addStretch()
         
@@ -175,9 +153,8 @@ class ImageView(QWidget):
         format_layout.setContentsMargins(0, 0, 0, 0)
         format_layout.setSpacing(5)
         
-        format_label = QLabel("Output Format:")
-        format_label.setStyleSheet("font-size: 15px; color: #333333; font-weight: bold;")
-        format_layout.addWidget(format_label)
+        self.format_label = QLabel("Output Format:")
+        format_layout.addWidget(self.format_label)
         
         format_options = QFrame()
         format_options_layout = QHBoxLayout(format_options)
@@ -189,24 +166,9 @@ class ImageView(QWidget):
         self.jpg_btn = QPushButton("JPG")
         self.jpg_btn.setCheckable(True)
         self.jpg_btn.setChecked(True)
-        self.jpg_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e0e0e0;
-                color: #333333;
-                border: none;
-                padding: 8px 15px;
-                border-radius: 5px;
-                font-size: 14px;
-            }
-            QPushButton:checked {
-                background-color: #009688;
-                color: white;
-            }
-        """)
         
         self.png_btn = QPushButton("PNG")
         self.png_btn.setCheckable(True)
-        self.png_btn.setStyleSheet(self.jpg_btn.styleSheet())
         
         self.format_group.addButton(self.jpg_btn, 0)
         self.format_group.addButton(self.png_btn, 1)
@@ -228,41 +190,10 @@ class ImageView(QWidget):
         btn_layout.setSpacing(15)
         
         self.compress_btn = QPushButton("Compress Images")
-        self.compress_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #009688;
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 5px;
-                font-size: 15px;
-                min-width: 180px;
-            }
-            QPushButton:hover {
-                background-color: #00796b;
-            }
-            QPushButton:disabled {
-                background-color: #b2dfdb;
-            }
-        """)
         self.compress_btn.setCursor(Qt.PointingHandCursor)
         self.compress_btn.setEnabled(False)
         
         self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f5f5f5;
-                color: #333333;
-                border: 1px solid #e0e0e0;
-                padding: 12px 24px;
-                border-radius: 5px;
-                font-size: 15px;
-                min-width: 180px;
-            }
-            QPushButton:hover {
-                background-color: #e0e0e0;
-            }
-        """)
         self.cancel_btn.setCursor(Qt.PointingHandCursor)
         
         btn_layout.addStretch()
@@ -276,6 +207,150 @@ class ImageView(QWidget):
         self.drop_area.files_dropped.connect(self.handle_file_dropped)
         self.compress_btn.clicked.connect(self.process_image)
         self.cancel_btn.clicked.connect(self.close)
+        
+    def on_theme_changed(self, is_dark_mode):
+        """Handle theme changes from the theme manager"""
+        self.apply_theme()
+        
+    def apply_theme(self):
+        """Apply the current theme to all UI elements"""
+        theme = get_current_theme()
+        primary_color = get_app_primary_color()
+        primary_hover = get_app_primary_hover_color()
+        
+        # Title styling
+        self.title.setStyleSheet(f"""
+            QLabel {{
+                font-size: 24px;
+                font-weight: bold;
+                color: {theme.TEXT_PRIMARY};
+            }}
+        """)
+        
+        # Description styling
+        self.desc.setStyleSheet(f"""
+            QLabel {{
+                font-size: 16px;
+                color: {theme.TEXT_SECONDARY};
+            }}
+        """)
+        
+        # Compression level label styling
+        self.comp_level_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 15px; 
+                color: {theme.TEXT_PRIMARY}; 
+                font-weight: bold;
+            }}
+        """)
+        
+        # Slider labels styling
+        self.min_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 13px; 
+                color: {theme.TEXT_MUTED};
+            }}
+        """)
+        
+        self.max_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 13px; 
+                color: {theme.TEXT_MUTED};
+            }}
+        """)
+        
+        # Resize label styling
+        self.resize_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 15px; 
+                color: {theme.TEXT_PRIMARY}; 
+                font-weight: bold;
+            }}
+        """)
+        
+        # Times label styling
+        self.times_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 14px; 
+                color: {theme.TEXT_PRIMARY};
+            }}
+        """)
+        
+        # Input fields styling
+        input_style = f"""
+            QLineEdit {{
+                padding: 8px;
+                border: 1px solid {theme.BORDER_PRIMARY};
+                border-radius: 4px;
+                font-size: 14px;
+                color: {theme.TEXT_PRIMARY};
+                background-color: {theme.SURFACE_BG};
+            }}
+        """
+        self.width_input.setStyleSheet(input_style)
+        self.height_input.setStyleSheet(input_style)
+        
+        # Format label styling
+        self.format_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 15px; 
+                color: {theme.TEXT_PRIMARY}; 
+                font-weight: bold;
+            }}
+        """)
+        
+        # Format button styling
+        format_button_style = f"""
+            QPushButton {{
+                background-color: {theme.SURFACE_BG};
+                color: {theme.TEXT_PRIMARY};
+                border: none;
+                padding: 8px 15px;
+                border-radius: 5px;
+                font-size: 14px;
+            }}
+            QPushButton:checked {{
+                background-color: {primary_color};
+                color: white;
+            }}
+        """
+        self.jpg_btn.setStyleSheet(format_button_style)
+        self.png_btn.setStyleSheet(format_button_style)
+        
+        # Compress button styling
+        self.compress_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {primary_color};
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 5px;
+                font-size: 15px;
+                min-width: 180px;
+            }}
+            QPushButton:hover {{
+                background-color: {primary_hover};
+            }}
+            QPushButton:disabled {{
+                background-color: #b2dfdb;
+            }}
+        """)
+        
+        # Cancel button styling
+        self.cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme.SURFACE_BG};
+                color: {theme.TEXT_PRIMARY};
+                border: 1px solid {theme.BORDER_PRIMARY};
+                padding: 12px 24px;
+                border-radius: 5px;
+                font-size: 15px;
+                min-width: 180px;
+            }}
+            QPushButton:hover {{
+                background-color: {theme.BORDER_PRIMARY};
+            }}
+        """)
         
     def handle_file_dropped(self, file_path):
         """Handle when a file is dropped or selected"""

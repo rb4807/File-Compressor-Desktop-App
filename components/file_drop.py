@@ -3,6 +3,7 @@ from PySide6.QtCore import Qt, Signal
 from components.message import show_error_message
 from icons.icons import IconLabel
 import os
+from theme.theme import get_current_theme, theme_manager, get_app_primary_color, get_app_primary_hover_color
 
 class FileDropArea(QFrame):
     files_dropped = Signal(str)
@@ -16,34 +17,72 @@ class FileDropArea(QFrame):
         self.setAcceptDrops(True)
         self.setFrameShape(QFrame.StyledPanel)
 
-        self.default_style = """
-            FileDropArea {
-                background-color: #f9fafb;
-                border: 2px dashed #d1d5db;
-                border-radius: 12px;
-            }
-        """
-        self.hover_style = """
-            FileDropArea {
-                border: 2px dashed #10b981;
-                background-color: #f0fdf4;
-            }
-        """
-        self.selected_style = """
-            FileDropArea {
-                background-color: #f0f9ff;
-                border: 2px solid #0ea5e9;
-                border-radius: 12px;
-            }
-        """
-        self.setStyleSheet(self.default_style)
+        # Connect to theme manager
+        theme_manager.theme_changed.connect(self.update_styles)
+        
+        # Initialize styles
+        self.update_styles()
         self.setup_ui()
+
+    def update_styles(self):
+        """Update all styles based on current theme"""
+        theme = get_current_theme()
+        primary_color = get_app_primary_color()
+        primary_hover = get_app_primary_hover_color()
+        
+        self.default_style = f"""
+            FileDropArea {{
+                background-color: {theme.SURFACE_BG};
+                border: 2px dashed {theme.BORDER_SECONDARY};
+                border-radius: 12px;
+            }}
+        """
+        self.hover_style = f"""
+            FileDropArea {{
+                border: 2px dashed {primary_color};
+                background-color: {theme.APP_BG};
+            }}
+        """
+        self.selected_style = f"""
+            FileDropArea {{
+                background-color: {theme.APP_BG};
+                border: 2px solid {primary_color};
+                border-radius: 12px;
+            }}
+        """
+        
+        # Apply current style
+        if self.selected_file:
+            self.setStyleSheet(self.selected_style)
+        else:
+            self.setStyleSheet(self.default_style)
+        
+        # Update label styles if they exist
+        if hasattr(self, 'title_label'):
+            self.title_label.setStyleSheet(f"""
+                QLabel {{
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: {theme.TEXT_PRIMARY};
+                    margin: 0px;
+                    background: transparent;
+                }}
+            """)
+        
+        if hasattr(self, 'desc_label'):
+            self.desc_label.setStyleSheet(f"""
+                QLabel {{
+                    font-size: 14px;
+                    color: {theme.TEXT_MUTED};
+                    margin: 0px;
+                    background: transparent;
+                }}
+            """)
 
     def setup_ui(self):
         """Setup the UI - will be updated when file is selected"""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setAlignment(Qt.AlignCenter)
-        # Use consistent margins and spacing for both states
         self.main_layout.setSpacing(15)
         self.main_layout.setContentsMargins(30, 30, 30, 30)
         
@@ -52,65 +91,67 @@ class FileDropArea(QFrame):
     def show_initial_state(self):
         """Show the initial drop area state"""
         self.clear_layout()
-        # Keep consistent margins and spacing
+        theme = get_current_theme()
+        primary_color = get_app_primary_color()
+        primary_hover = get_app_primary_hover_color()
+        
         self.main_layout.setContentsMargins(30, 30, 30, 30)
         self.main_layout.setSpacing(15)
 
-        # Icon - reduced size to match the selected state better
+        # Icon
         self.icon_label = IconLabel("upload", 48)
+        self.icon_label.setStyleSheet(f"background: transparent; color: {theme.TEXT_PRIMARY};")
         self.main_layout.addWidget(self.icon_label, 0, Qt.AlignCenter)
 
-        # Title - reduced font size
+        # Title
         self.title_label = QLabel(self.original_title)
-        self.title_label.setStyleSheet("""
-            QLabel {
+        self.title_label.setStyleSheet(f"""
+            QLabel {{
                 font-size: 18px;
                 font-weight: 600;
-                color: #1f2937;
+                color: {theme.TEXT_PRIMARY};
                 margin: 0px;
-            }
+                background: transparent;
+            }}
         """)
         self.title_label.setAlignment(Qt.AlignCenter)
         self.main_layout.addWidget(self.title_label)
 
         # Description
         self.desc_label = QLabel(self.original_description)
-        self.desc_label.setStyleSheet("""
-            QLabel {
+        self.desc_label.setStyleSheet(f"""
+            QLabel {{
                 font-size: 14px;
-                color: #6b7280;
+                color: {theme.TEXT_MUTED};
                 margin: 0px;
-            }
+                background: transparent;
+            }}
         """)
         self.desc_label.setAlignment(Qt.AlignCenter)
         self.main_layout.addWidget(self.desc_label)
 
-        # Browse button - reduced padding to match selected state buttons
+        # Browse button
         self.browse_btn = QPushButton("Browse Files")
         self.browse_btn.setCursor(Qt.PointingHandCursor)
-        self.browse_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
+        self.browse_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {primary_color};
                 color: white;
                 border: none;
                 padding: 8px 16px;
                 border-radius: 6px;
                 font-size: 13px;
                 font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {primary_hover};
+            }}
         """)
         self.browse_btn.clicked.connect(self.open_file_dialog)
         
-        # Add button in a container with top margin to match selected state
+        # Add button in a container
         button_frame = QFrame()
-        button_frame.setStyleSheet("""
-            QFrame {
-                background-color: transparent;  
-            }
-        """)
+        button_frame.setStyleSheet("background-color: transparent;")
         button_layout = QHBoxLayout(button_frame)
         button_layout.setContentsMargins(0, 10, 0, 0)
         button_layout.addWidget(self.browse_btn, 0, Qt.AlignCenter)
@@ -120,50 +161,50 @@ class FileDropArea(QFrame):
     def show_selected_state(self):
         """Show the selected file state"""
         self.clear_layout()
+        theme = get_current_theme()
+        primary_color = get_app_primary_color()
+        
         self.main_layout.setContentsMargins(30, 30, 30, 30)
         self.main_layout.setSpacing(15)
 
         # File icon
         success_label = IconLabel(icon_type="success_tick", size=48)
+        success_label.setStyleSheet(f"background: transparent; color: {primary_color};")
         self.main_layout.addWidget(success_label, 0, Qt.AlignCenter)
 
         # File name
         file_name = os.path.basename(self.selected_file) if self.selected_file else "Unknown file"
         file_name_label = QLabel(file_name)
-        file_name_label.setStyleSheet("""
-            QLabel {
+        file_name_label.setStyleSheet(f"""
+            QLabel {{
                 font-size: 18px;
                 font-weight: 600;
-                color: #0ea5e9;
+                color: {primary_color};
                 margin: 0px;
                 background-color: transparent;
-            }
+            }}
         """)
         file_name_label.setAlignment(Qt.AlignCenter)
-        file_name_label.setWordWrap(True)  # Allow long filenames to wrap
+        file_name_label.setWordWrap(True)
         self.main_layout.addWidget(file_name_label)
 
         # Status
         status_label = QLabel("File Selected")
-        status_label.setStyleSheet("""
-            QLabel {
+        status_label.setStyleSheet(f"""
+            QLabel {{
                 font-size: 14px;
-                color: #059669;
+                color: {primary_color};
                 font-weight: 500;
                 margin: 0px;
                 background-color: transparent;
-            }
+            }}
         """)
         status_label.setAlignment(Qt.AlignCenter)
         self.main_layout.addWidget(status_label)
 
         # Buttons
         button_frame = QFrame()
-        button_frame.setStyleSheet("""
-            QFrame {
-                background-color: transparent;  
-            }
-        """)
+        button_frame.setStyleSheet("background-color: transparent;")
         button_layout = QHBoxLayout(button_frame)
         button_layout.setContentsMargins(0, 10, 0, 0)
         button_layout.setSpacing(10)
@@ -171,21 +212,20 @@ class FileDropArea(QFrame):
         # Change button
         change_btn = QPushButton("Change File")
         change_btn.setCursor(Qt.PointingHandCursor)
-        change_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #78a0f0;
-                color: #ffffff;
-                border: 1px solid #78a0f0;
+        change_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme.SURFACE_BG};
+                color: {theme.TEXT_PRIMARY};
+                border: 1px solid {theme.BORDER_SECONDARY};
                 padding: 8px 16px;
                 border-radius: 6px;
                 font-size: 13px;
                 font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #4463a1;
-                border: 1px solid #4463a1;
-                color: #ffffff;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {theme.APP_BG};
+                border: 1px solid {primary_color};
+            }}
         """)
         change_btn.clicked.connect(self.open_file_dialog)
         button_layout.addWidget(change_btn)
@@ -193,21 +233,20 @@ class FileDropArea(QFrame):
         # Remove button
         remove_btn = QPushButton("Remove")
         remove_btn.setCursor(Qt.PointingHandCursor)
-        remove_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #dc2626;
-                color: #ffffff;
+        remove_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme.SURFACE_BG};
+                color: #dc2626;
                 border: 1px solid #dc2626;
                 padding: 8px 16px;
                 border-radius: 6px;
                 font-size: 13px;
                 font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #fecaca;
-                border: 1px solid #fecaca;
-                color: #ffffff;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: #fee2e2;
+                border: 1px solid #fee2e2;
+            }}
         """)
         remove_btn.clicked.connect(self.remove_file)
         button_layout.addWidget(remove_btn)

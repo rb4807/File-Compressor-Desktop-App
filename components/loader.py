@@ -1,6 +1,7 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QFrame
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QFrame, QGraphicsDropShadowEffect
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QPen, QColor
+from theme.theme import get_current_theme, get_app_primary_color
 
 class LoaderWidget(QWidget):
     def __init__(self, parent=None):
@@ -28,39 +29,48 @@ class LoaderWidget(QWidget):
         layout.addWidget(self.dots_frame)
         
         # Status label
-        self.status_label = QLabel("Compressing files...")
+        self.status_label = QLabel("Processing...")
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setStyleSheet("""
-            QLabel {
-                font-size: 16px;
-                color: #009688;
-                font-weight: bold;
-                background: transparent;
-                border: none;
-                margin: 5px 0px;
-            }
-        """)
         layout.addWidget(self.status_label)
         
         # Progress indicator
         self.progress_label = QLabel("Please wait...")
         self.progress_label.setAlignment(Qt.AlignCenter)
-        self.progress_label.setStyleSheet("""
-            QLabel {
+        layout.addWidget(self.progress_label)
+        
+        # Apply initial theme
+        self.apply_theme()
+        
+    def apply_theme(self):
+        """Apply the current theme to the loader"""
+        theme = get_current_theme()
+        primary_color = get_app_primary_color()
+        
+        # Status label styling
+        self.status_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 16px;
+                color: {primary_color};
+                font-weight: bold;
+                background: transparent;
+                border: none;
+                margin: 5px 0px;
+            }}
+        """)
+        
+        # Progress label styling
+        self.progress_label.setStyleSheet(f"""
+            QLabel {{
                 font-size: 13px;
-                color: #666666;
+                color: {getattr(theme, 'TEXT_SECONDARY', '#666666')};
                 background: transparent;
                 border: none;
                 margin: 0px;
-            }
+            }}
         """)
-        layout.addWidget(self.progress_label)
         
     def create_shadow_effect(self):
         """Create a shadow effect for the modal"""
-        from PySide6.QtWidgets import QGraphicsDropShadowEffect
-        from PySide6.QtGui import QColor
-        
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(20)
         shadow.setXOffset(0)
@@ -87,10 +97,15 @@ class LoaderWidget(QWidget):
         
         # Draw modal background with border
         rect = self.rect()
+        theme = get_current_theme()
         
-        # Draw white background with rounded corners
-        painter.setBrush(QColor(230, 230, 230))
-        painter.setPen(QPen(QColor(224, 224, 224), 2))
+        # Use getattr with fallback values for theme attributes
+        bg_color = getattr(theme, 'SURFACE_BG', '#E6E6E6')
+        border_color = getattr(theme, 'BORDER_PRIMARY', '#E0E0E0')
+        
+        # Draw background with rounded corners
+        painter.setBrush(QColor(bg_color))
+        painter.setPen(QPen(QColor(border_color), 2))
         painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), 15, 15)
         
         # Draw spinning loader in the dots frame area
@@ -102,8 +117,8 @@ class LoaderWidget(QWidget):
         painter.translate(center_x, center_y)
         painter.rotate(self._rotation)
         
-        # Draw file compression icon (stylized) - larger for better visibility
-        pen = QPen(QColor(0, 150, 136), 3)
+        # Draw file compression icon (stylized)
+        pen = QPen(QColor(get_app_primary_color()), 3)
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
         
@@ -128,8 +143,7 @@ class LoaderOverlay(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-        # Semi-transparent dark backdrop for modal effect
-        self.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
+        self.apply_theme()
         
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
@@ -139,6 +153,19 @@ class LoaderOverlay(QWidget):
         layout.addWidget(self.loader)
         
         self.hide()
+        
+    def apply_theme(self):
+        """Apply the current theme to the overlay"""
+        # Fallback to dark semi-transparent overlay if theme doesn't specify
+        overlay_color = "rgba(0, 0, 0, 120)"
+        try:
+            theme = get_current_theme()
+            if hasattr(theme, 'OVERLAY_BG'):
+                overlay_color = theme.OVERLAY_BG
+        except:
+            pass
+            
+        self.setStyleSheet(f"background-color: {overlay_color};")
         
     def showEvent(self, event):
         super().showEvent(event)
@@ -158,7 +185,7 @@ class LoaderOverlay(QWidget):
 # Global loader management
 _loader_overlay = None
 
-def trigger_loader(action, parent_widget=None, message="Compressing files..."):
+def trigger_loader(action, parent_widget=None, message="Processing..."):
     """
     Global function to show/hide loader
     

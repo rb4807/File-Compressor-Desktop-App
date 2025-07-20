@@ -294,26 +294,35 @@ class IconLabel(QLabel):
         painter.setPen(Qt.white)
         painter.drawText(QRectF(pdf_x, pdf_y + pdf_height * 0.6, pdf_width, pdf_height * 0.3), Qt.AlignCenter, "PDF")
 
-    def draw_pdf_to_image_icon(self, painter, color):    
+    def draw_pdf_to_image_icon(self, painter, color):
         size = self.icon_size
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(Qt.NoPen)
         
-        # Draw the PDF document (left side) - using your PDF compression style
-        pdf_width = size * 0.4
-        pdf_height = size * 0.5
-        pdf_x = size * 0.05
-        pdf_y = size * 0.25
+        # Improved color scheme
+        pdf_color = QColor("#E74C3C")  # Vibrant red for PDF
+        fold_color = QColor("#EC7063")  # Lighter red for fold
+        image_bg_color = QColor("#3498DB")  # Blue for image
+        arrow_color = QColor("#7F8C8D")  # Neutral gray for arrow
         
-        # Document shape with rounded corners (green from your PDF theme)
-        green_color = QColor("#10b981")
-        painter.setBrush(green_color)
+        # Draw the PDF document (left side) - cleaner design
+        pdf_width = size * 0.4
+        pdf_height = size * 0.55
+        pdf_x = size * 0.05
+        pdf_y = size * 0.2
+        
+        # Document shape with subtle shadow
+        painter.setBrush(QColor(0, 0, 0, 20))
+        painter.drawRoundedRect(QRectF(pdf_x + 2, pdf_y + 2, pdf_width, pdf_height), 
+                            pdf_width * 0.08, pdf_width * 0.08)
+        
+        # Main document
+        painter.setBrush(pdf_color)
         painter.drawRoundedRect(QRectF(pdf_x, pdf_y, pdf_width, pdf_height), 
                             pdf_width * 0.08, pdf_width * 0.08)
         
-        # Folded top-right corner (lighter green)
-        fold_color = QColor("#34d399")  # lighter green for fold
-        fold_size = pdf_width * 0.2
+        # Folded corner - more subtle
+        fold_size = pdf_width * 0.15
         fold_path = QPainterPath()
         fold_path.moveTo(pdf_x + pdf_width, pdf_y)
         fold_path.lineTo(pdf_x + pdf_width - fold_size, pdf_y)
@@ -322,93 +331,103 @@ class IconLabel(QLabel):
         painter.setBrush(fold_color)
         painter.drawPath(fold_path)
         
-        # Horizontal white lines (like "=" symbol from your PDF icon)
+        # Document lines - fewer and more spaced
         line_width = pdf_width * 0.7
-        line_height = pdf_height * 0.05
+        line_height = pdf_height * 0.04
         line_x = pdf_x + (pdf_width - line_width) / 2
         
         painter.setBrush(Qt.white)
-        line1_y = pdf_y + pdf_height * 0.35
-        line2_y = pdf_y + pdf_height * 0.45
-        painter.drawRect(QRectF(line_x, line1_y, line_width, line_height))
-        painter.drawRect(QRectF(line_x, line2_y, line_width, line_height))
+        line_spacing = pdf_height * 0.15
+        for i in range(3):
+            line_y = pdf_y + pdf_height * 0.3 + (i * line_spacing)
+            painter.drawRoundedRect(QRectF(line_x, line_y, line_width, line_height), 
+                                line_height/2, line_height/2)
         
-        # "PDF" text
+        # "PDF" text - more prominent
         font = painter.font()
-        font.setPixelSize(size * 0.12)
+        font.setPixelSize(size * 0.14)
         font.setBold(True)
         font.setFamily("Arial")
         painter.setFont(font)
         painter.setPen(Qt.white)
-        painter.drawText(QRectF(pdf_x, pdf_y + pdf_height * 0.6, pdf_width, pdf_height * 0.3), 
+        painter.drawText(QRectF(pdf_x, pdf_y + pdf_height * 0.7, pdf_width, pdf_height * 0.3), 
                         Qt.AlignCenter, "PDF")
         
-        # Draw curved arrow from PDF to image - using gray for visibility
-        painter.setPen(QPen(QColor("#6b7280"), size * 0.025))
-        painter.setBrush(QColor("#6b7280"))
+        # Draw elegant arrow from PDF to image
+        arrow_width = size * 0.02
+        painter.setPen(QPen(arrow_color, arrow_width))
+        painter.setBrush(arrow_color)
         
-        # Create curved arrow path
+        # Curved arrow path with better flow
         arrow_path = QPainterPath()
         start_x = pdf_x + pdf_width + size * 0.01
         start_y = pdf_y + pdf_height * 0.5
-        end_x = size * 0.52
-        end_y = size * 0.48
+        end_x = size * 0.55
+        end_y = size * 0.45
         
-        # Control points for the curve
-        control1_x = start_x + size * 0.08
-        control1_y = start_y - size * 0.08
-        control2_x = end_x - size * 0.05
-        control2_y = end_y - size * 0.05
-        
+        # Smooth bezier curve
+        control_offset = size * 0.15
         arrow_path.moveTo(start_x, start_y)
-        arrow_path.cubicTo(control1_x, control1_y, control2_x, control2_y, end_x, end_y)
+        arrow_path.cubicTo(
+            start_x + control_offset, start_y - control_offset*0.7,
+            end_x - control_offset*0.7, end_y - control_offset,
+            end_x, end_y)
         
         painter.drawPath(arrow_path)
         
-        # Draw arrow head
-        arrow_head_size = size * 0.04
-        arrow_head_path = QPainterPath()
-        arrow_head_path.moveTo(end_x, end_y)
-        arrow_head_path.lineTo(end_x - arrow_head_size, end_y - arrow_head_size * 0.8)
-        arrow_head_path.lineTo(end_x - arrow_head_size * 0.5, end_y)
-        arrow_head_path.lineTo(end_x - arrow_head_size, end_y + arrow_head_size * 0.8)
-        arrow_head_path.closeSubpath()
+        # Arrow head - more elegant
+        arrow_head_size = size * 0.045
+        arrow_head = QPolygonF()
+        arrow_head.append(QPointF(end_x, end_y))
+        arrow_head.append(QPointF(end_x - arrow_head_size*1.5, end_y - arrow_head_size))
+        arrow_head.append(QPointF(end_x - arrow_head_size, end_y))
+        arrow_head.append(QPointF(end_x - arrow_head_size*1.5, end_y + arrow_head_size))
+        painter.drawPolygon(arrow_head)
         
-        painter.drawPath(arrow_head_path)
+        # Draw the target image (right side) - more modern
+        image_width = size * 0.38
+        image_height = size * 0.5
+        image_x = size * 0.55
+        image_y = size * 0.25
         
-        # Draw the target image (right side) - using your image compression style
-        image_size = size * 0.4
-        image_x = size * 0.52
-        image_y = size * 0.3
+        # Image shadow
+        painter.setBrush(QColor(0, 0, 0, 25))
+        painter.drawRoundedRect(image_x + 3, image_y + 3, image_width, image_height, 5, 5)
         
-        # Main image frame with shadow (from your image compress icon)
-        painter.setBrush(QColor(0, 0, 0, 30))  # Shadow
-        painter.drawRoundedRect(image_x + size * 0.02, image_y + size * 0.02, image_size, image_size * 0.8, 3, 3)
+        # Image frame with border
+        painter.setBrush(image_bg_color)
+        painter.setPen(QPen(Qt.white, size * 0.008))
+        painter.drawRoundedRect(image_x, image_y, image_width, image_height, 5, 5)
         
-        # Image background (blue from your theme)
-        painter.setBrush(QColor("#4A90E2"))  # Blue for image
-        painter.drawRoundedRect(image_x, image_y, image_size, image_size * 0.8, 3, 3)
+        # Image content - simplified landscape
+        # Sky
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#87CEEB"))
+        painter.drawRect(image_x, image_y, image_width, image_height * 0.6)
         
-        # Image content - sky
-        painter.setBrush(QColor("#87CEEB"))  # Sky
-        painter.drawRect(image_x + image_size * 0.08, image_y + image_size * 0.08, 
-                        image_size * 0.84, image_size * 0.4)
+        # Mountains
+        mountain_path = QPainterPath()
+        mountain_path.moveTo(image_x, image_y + image_height * 0.6)
+        mountain_path.lineTo(image_x + image_width * 0.3, image_y + image_height * 0.3)
+        mountain_path.lineTo(image_x + image_width * 0.5, image_y + image_height * 0.4)
+        mountain_path.lineTo(image_x + image_width * 0.7, image_y + image_height * 0.25)
+        mountain_path.lineTo(image_x + image_width, image_y + image_height * 0.6)
+        mountain_path.closeSubpath()
+        painter.setBrush(QColor("#27AE60"))
+        painter.drawPath(mountain_path)
         
-        # Mountains/landscape
-        painter.setBrush(QColor("#228B22"))
-        landscape = QPainterPath()
-        landscape.moveTo(image_x + image_size * 0.08, image_y + image_size * 0.48)
-        landscape.lineTo(image_x + image_size * 0.25, image_y + image_size * 0.25)
-        landscape.lineTo(image_x + image_size * 0.5, image_y + image_size * 0.35)
-        landscape.lineTo(image_x + image_size * 0.75, image_y + image_size * 0.2)
-        landscape.lineTo(image_x + image_size * 0.92, image_y + image_size * 0.48)
-        landscape.closeSubpath()
-        painter.drawPath(landscape)
+        # Sun with rays
+        painter.setBrush(QColor("#F1C40F"))
+        sun_size = image_width * 0.15
+        painter.drawEllipse(QPointF(image_x + image_width * 0.75, image_y + image_height * 0.2), 
+                        sun_size/2, sun_size/2)
         
-        # Sun
-        painter.setBrush(QColor("#FFD700"))
-        painter.drawEllipse(image_x + image_size * 0.7, image_y + image_size * 0.15, image_size * 0.15, image_size * 0.15)
-
+        # "IMG" text at bottom
+        font.setPixelSize(size * 0.12)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+        painter.drawText(QRectF(image_x, image_y + image_height * 0.7, image_width, image_height * 0.3), Qt.AlignCenter, "IMG")
+        
     def draw_image_compress_icon(self, painter, color):
         size = self.icon_size
         painter.setPen(Qt.NoPen)
